@@ -1,0 +1,60 @@
+wget https://github.com/CIS-4560/US-Accidents-2016---2023-/raw/refs/heads/main/US_Accidents_March23.zip
+unzip US_Accidents_March23.zip
+hdfs dfs -mkdir tmp/US-Accidents_02_16-03_23
+hdfs dfs -mkdir tmp/new_US-Accidents_02_16-03_23
+hdfs dfs -put US_Accidents_March23.csv tmp/US-Accidents_02_16-03_23/
+
+beeline
+
+use jsanc479;
+ 
+# Create table for imported data#
+
+DROP TABLE IF EXISTS US_Car_Accidents;
+
+CREATE EXTERNAL TABLE IF NOT EXISTS US_Car_Accidents (
+ID string,
+Source string,
+Severity INT,
+Start_time TIMESTAMP,
+End_time TIMESTAMP,
+Start_Lat string,
+Start_Long string,
+End_Lat string,
+End_Long string,
+Distance_miles float,
+Description string,
+Street string,
+City string,
+County string,
+state string)
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ","
+STORED AS TEXTFILE
+LOCATION "/user/jsanc479/tmp/US-Accidents_02_16-03_23/"
+TBLPROPERTIES ('skip.header.line.count' = '1');
+
+#Filter unwanted columns from data by making a new table#
+
+DROP TABLE IF EXISTS new_US_Car_Accidents;
+
+CREATE TABLE new_US_Car_Accidents
+ROW FORMAT DELIMITED
+FIELDS TERMINATED BY ','
+STORED AS TEXTFILE
+LOCATION "/user/jsanc479/tmp/new_US-Accidents_02_16-03_23/"
+AS
+SELECT ID, Severity, Start_time, End_time, Start_Lat, Start_Long, Distance_miles, City, 
+FROM US_Car_Accidents
+WHERE Start_time > '2021-12-31 23:59:59'
+ORDER BY Start_time DESC;
+
+#Copy new table to linux machine#
+
+hdfs dfs -get /user/jsanc479/tmp/new_US-Accidents_02_16-03_23/000000_0
+
+cat 000000_0 > US-Car-Accidents_02_16-03_23.txt
+
+#Copy new table to local machine for Data Analysis#
+
+scp jsanc479@129.146.230.230:/home/jsanc479/US-Car-Accidents_02_16-03_23.txt
